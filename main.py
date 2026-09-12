@@ -84,11 +84,12 @@ if 'analysis_data' not in st.session_state:
 # 3. Helper Functions (Hugging Face Vision AI & Chemical Mapping)
 # -----------------------------------------------------------------------------
 
-# 사물 키워드에 따른 화학 성분 매칭 데이터베이스
+# 사물 키워드 및 다양한 카테고리별 화학 성분 매칭 데이터베이스 (확장 버전)
 OBJECT_TO_CHEMICAL_DB = {
     "water": {
-        "object_ko": "물병 / 물",
-        "compound_ko": "물",
+        "keywords": ["water", "liquid", "drink", "cup", "glass", "beverage"],
+        "object_ko": "물 / 음료수",
+        "compound_ko": "물 (Water)",
         "compound_en": "Water",
         "formula": "H₂O",
         "examples": [
@@ -96,8 +97,20 @@ OBJECT_TO_CHEMICAL_DB = {
             {"name": "비", "keyword": "rain"}
         ]
     },
+    "coffee": {
+        "keywords": ["coffee", "mug", "espresso", "tea"],
+        "object_ko": "커피 / 차",
+        "compound_ko": "카페인 (Caffeine)",
+        "compound_en": "Caffeine",
+        "formula": "C₈H₁₀N₄O₂",
+        "examples": [
+            {"name": "녹차", "keyword": "green tea"},
+            {"name": "에너지 음료", "keyword": "energy drink"}
+        ]
+    },
     "apple": {
-        "object_ko": "사과",
+        "keywords": ["apple", "fruit", "orange", "banana", "sweet"],
+        "object_ko": "과일 / 단 음식",
         "compound_ko": "과당 (Fructose)",
         "compound_en": "Fructose",
         "formula": "C₆H₁₂O₆",
@@ -106,8 +119,31 @@ OBJECT_TO_CHEMICAL_DB = {
             {"name": "포도", "keyword": "grapes"}
         ]
     },
+    "paper": {
+        "keywords": ["paper", "book", "box", "cardboard", "wood", "table"],
+        "object_ko": "종이 / 나무 제품",
+        "compound_ko": "셀룰로오스 (Cellulose)",
+        "compound_en": "Cellulose",
+        "formula": "(C₆H₁₀O₅)n",
+        "examples": [
+            {"name": "면 옷", "keyword": "cotton shirt"},
+            {"name": "휴지", "keyword": "tissue paper"}
+        ]
+    },
+    "salt": {
+        "keywords": ["salt", "white powder", "food", "dish", "plate"],
+        "object_ko": "소금 / 음료",
+        "compound_ko": "염화 나트륨 (Sodium Chloride)",
+        "compound_en": "Sodium chloride",
+        "formula": "NaCl",
+        "examples": [
+            {"name": "해수 (바닷물)", "keyword": "sea water"},
+            {"name": "생리식염수", "keyword": "saline solution"}
+        ]
+    },
     "pencil": {
-        "object_ko": "연필",
+        "keywords": ["pencil", "pen", "black"],
+        "object_ko": "연필 / 흑연",
         "compound_ko": "흑연 (탄소)",
         "compound_en": "Graphite",
         "formula": "C",
@@ -117,23 +153,36 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "bottle": {
-        "object_ko": "플라스틱 병",
+        "keywords": ["bottle", "plastic", "container"],
+        "object_ko": "플라스틱 용기",
         "compound_ko": "폴리에틸렌 테레프탈레이트 (PET)",
         "compound_en": "Polyethylene terephthalate",
         "formula": "(C₁₀H₈O₄)n",
         "examples": [
             {"name": "합성섬유 옷", "keyword": "polyester clothes"},
-            {"name": "포장용 용기", "keyword": "plastic container"}
+            {"name": "비닐봉지", "keyword": "plastic bag"}
+        ]
+    },
+    "bread": {
+        "keywords": ["bread", "cake", "rice", "food", "cookie"],
+        "object_ko": "빵 / 밥 / 곡물",
+        "compound_ko": "녹말 (Starch)",
+        "compound_en": "Starch",
+        "formula": "(C₆H₁₀O₅)n",
+        "examples": [
+            {"name": "감자", "keyword": "potato"},
+            {"name": "옥수수", "keyword": "corn"}
         ]
     },
     "default": {
+        "keywords": [],
         "object_ko": "일반 유기물 사물",
         "compound_ko": "포도당 (Glucose)",
         "compound_en": "Glucose",
         "formula": "C₆H₁₂O₆",
         "examples": [
-            {"name": "빵", "keyword": "bread"},
-            {"name": "쌀밥", "keyword": "rice"}
+            {"name": "설탕", "keyword": "sugar"},
+            {"name": "과일 잼", "keyword": "jam"}
         ]
     }
 }
@@ -165,18 +214,28 @@ def query_huggingface_vision(image):
         return None
 
 def process_image_analysis(image):
-    """인식된 키워드를 기반으로 화학 성분 및 데이터 매칭"""
+    """인식된 캡션 단어를 기반으로 화학 성분 및 데이터 매칭"""
     caption = query_huggingface_vision(image)
+    
     if not caption:
-        matched_data = OBJECT_TO_CHEMICAL_DB["default"]
-    else:
-        matched_data = OBJECT_TO_CHEMICAL_DB["default"]
-        for key in OBJECT_TO_CHEMICAL_DB:
-            if key in caption:
-                matched_data = OBJECT_TO_CHEMICAL_DB[key]
-                break
+        return OBJECT_TO_CHEMICAL_DB["default"], "인식 불가 (기본값)"
 
-    return matched_data
+    matched_data = None
+    # 캡션 문장에 포함된 키워드 검색
+    for key, data in OBJECT_TO_CHEMICAL_DB.items():
+        if key == "default":
+            continue
+        for kw in data["keywords"]:
+            if kw in caption:
+                matched_data = data
+                break
+        if matched_data:
+            break
+
+    if not matched_data:
+        matched_data = OBJECT_TO_CHEMICAL_DB["default"]
+
+    return matched_data, caption
 
 def fetch_pubchem_sdf(compound_name):
     """PubChem 데이터베이스에서 3D 구조 SDF 데이터 가져오기"""
@@ -264,11 +323,12 @@ elif st.session_state.stage == 'analyzing':
         """, unsafe_allow_html=True)
     
     if st.session_state.get('uploaded_image'):
-        chemical_info = process_image_analysis(st.session_state.uploaded_image)
+        chemical_info, caption = process_image_analysis(st.session_state.uploaded_image)
         sdf_data = fetch_pubchem_sdf(chemical_info['compound_en'])
         
         st.session_state.analysis_data = {
             'info': chemical_info,
+            'caption': caption,
             'sdf': sdf_data
         }
         st.session_state.stage = 'result'
@@ -278,6 +338,7 @@ elif st.session_state.stage == 'analyzing':
 elif st.session_state.stage == 'result':
     data = st.session_state.analysis_data
     info = data['info']
+    caption = data.get('caption', '')
     sdf = data['sdf']
     
     top_col1, top_col2 = st.columns([1, 2])
@@ -290,6 +351,7 @@ elif st.session_state.stage == 'result':
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="title-text" style="margin-top:-20px;">성분돋보기</div>', unsafe_allow_html=True)
+    st.caption(f"🤖 AI 인식 결과: `{caption}`")
     st.divider()
 
     main_col1, main_col2 = st.columns([3, 2])
