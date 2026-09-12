@@ -3,3 +3,5 @@ requests
 stmol
 py3Dmol
 pillow
+ipython_genutils
+ipywidgets
