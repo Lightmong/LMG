@@ -7,7 +7,7 @@ import stmol
 import py3Dmol
 
 # -----------------------------------------------------------------------------
-# 1. Page Configuration & Custom CSS (UI Requirements)
+# 1. Page Configuration & Custom CSS
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="성분돋보기",
@@ -56,13 +56,6 @@ st.markdown("""
         font-size: 0.9rem !important;
     }
 
-    /* 예시 카드 스타일 */
-    .example-card {
-        border-radius: 10px;
-        overflow: hidden;
-        margin-bottom: 15px;
-    }
-
     /* 하단 면책 조항 */
     .disclaimer {
         position: fixed;
@@ -88,10 +81,9 @@ if 'analysis_data' not in st.session_state:
     st.session_state.analysis_data = None
 
 # -----------------------------------------------------------------------------
-# 3. Helper Functions & Chemical Database
+# 3. Helper Functions & Chemical Database (정확한 대표 이미지 URL 매칭)
 # -----------------------------------------------------------------------------
 
-# 실제 주제에 매칭되는 Unsplash 고화질 사진 URL 적용
 OBJECT_TO_CHEMICAL_DB = {
     "water": {
         "keywords": ["water", "liquid", "drink", "cup", "glass", "beverage"],
@@ -100,8 +92,14 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Water",
         "formula": "H₂O",
         "examples": [
-            {"name": "얼음 (Ice)", "image_url": "https://images.unsplash.com/photo-1516715094483-75da7dee9758?w=500&auto=format&fit=crop&q=80"},
-            {"name": "빗물 (Rainwater)", "image_url": "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=500&auto=format&fit=crop&q=80"}
+            {
+                "name": "각얼음 (Ice Cubes)", 
+                "image_url": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&auto=format&fit=crop&q=80"
+            },
+            {
+                "name": "빗물 (Raindrops)", 
+                "image_url": "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=500&auto=format&fit=crop&q=80"
+            }
         ]
     },
     "coffee": {
@@ -111,8 +109,14 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Caffeine",
         "formula": "C₈H₁₀N₄O₂",
         "examples": [
-            {"name": "녹차 (Green Tea)", "image_url": "https://images.unsplash.com/photo-1627435601361-ec25f5b1d0e5?w=500&auto=format&fit=crop&q=80"},
-            {"name": "에너지 음료 (Energy Drink)", "image_url": "https://images.unsplash.com/photo-1622543925917-763c34d1a86e?w=500&auto=format&fit=crop&q=80"}
+            {
+                "name": "녹차 (Green Tea)", 
+                "image_url": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=500&auto=format&fit=crop&q=80"
+            },
+            {
+                "name": "에스프레소 커피", 
+                "image_url": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80"
+            }
         ]
     },
     "apple": {
@@ -122,8 +126,14 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Fructose",
         "formula": "C₆H₁₂O₆",
         "examples": [
-            {"name": "천연 꿀 (Honey)", "image_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&auto=format&fit=crop&q=80"},
-            {"name": "포도 (Grapes)", "image_url": "https://images.unsplash.com/photo-1537640538966-79f369143f8f?w=500&auto=format&fit=crop&q=80"}
+            {
+                "name": "천연 꿀 (Honey)", 
+                "image_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&auto=format&fit=crop&q=80"
+            },
+            {
+                "name": "포도 (Grapes)", 
+                "image_url": "https://images.unsplash.com/photo-1537640538966-79f369143f8f?w=500&auto=format&fit=crop&q=80"
+            }
         ]
     },
     "paper": {
@@ -133,8 +143,14 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Cellulose",
         "formula": "(C₆H₁₀O₅)n",
         "examples": [
-            {"name": "순면 옷 (Cotton)", "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop&q=80"},
-            {"name": "책 / 종이 (Book)", "image_url": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=500&auto=format&fit=crop&q=80"}
+            {
+                "name": "면 옷 (Cotton)", 
+                "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop&q=80"
+            },
+            {
+                "name": "책 / 종이 (Books)", 
+                "image_url": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=500&auto=format&fit=crop&q=80"
+            }
         ]
     },
     "salt": {
@@ -144,8 +160,14 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Sodium chloride",
         "formula": "NaCl",
         "examples": [
-            {"name": "바닷물 (Sea Water)", "image_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80"},
-            {"name": "천일염 (Sea Salt)", "image_url": "https://images.unsplash.com/photo-1518110168401-f2878ee5c8d9?w=500&auto=format&fit=crop&q=80"}
+            {
+                "name": "바닷물 (Sea Water)", 
+                "image_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80"
+            },
+            {
+                "name": "소금 결정 (Salt)", 
+                "image_url": "https://images.unsplash.com/photo-1626197031507-c170a04d2a09?w=500&auto=format&fit=crop&q=80"
+            }
         ]
     },
     "pencil": {
@@ -155,19 +177,14 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Graphite",
         "formula": "C",
         "examples": [
-            {"name": "숯 (Charcoal)", "image_url": "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=500&auto=format&fit=crop&q=80"},
-            {"name": "다이아몬드 (Diamond)", "image_url": "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=500&auto=format&fit=crop&q=80"}
-        ]
-    },
-    "bottle": {
-        "keywords": ["bottle", "plastic", "container"],
-        "object_ko": "플라스틱 용기",
-        "compound_ko": "폴리에틸렌 테레프탈레이트 (PET)",
-        "compound_en": "Polyethylene terephthalate",
-        "formula": "(C₁₀H₈O₄)n",
-        "examples": [
-            {"name": "폴리에스터 의류", "image_url": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&auto=format&fit=crop&q=80"},
-            {"name": "투명 투명 용기", "image_url": "https://images.unsplash.com/photo-1527156391709-37058e37ff62?w=500&auto=format&fit=crop&q=80"}
+            {
+                "name": "숯 (Charcoal)", 
+                "image_url": "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=500&auto=format&fit=crop&q=80"
+            },
+            {
+                "name": "다이아몬드 (Diamond)", 
+                "image_url": "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=500&auto=format&fit=crop&q=80"
+            }
         ]
     },
     "bread": {
@@ -177,8 +194,14 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Starch",
         "formula": "(C₆H₁₀O₅)n",
         "examples": [
-            {"name": "감자 (Potato)", "image_url": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=80"},
-            {"name": "옥수수 (Corn)", "image_url": "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=500&auto=format&fit=crop&q=80"}
+            {
+                "name": "감자 (Potatoes)", 
+                "image_url": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=80"
+            },
+            {
+                "name": "옥수수 (Corn)", 
+                "image_url": "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=500&auto=format&fit=crop&q=80"
+            }
         ]
     },
     "default": {
@@ -188,8 +211,14 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Glucose",
         "formula": "C₆H₁₂O₆",
         "examples": [
-            {"name": "백설탕 (Sugar)", "image_url": "https://images.unsplash.com/photo-1581441363689-1f3c3c414635?w=500&auto=format&fit=crop&q=80"},
-            {"name": "과일 잼 (Fruit Jam)", "image_url": "https://images.unsplash.com/photo-1568571780765-9276ac8b75a2?w=500&auto=format&fit=crop&q=80"}
+            {
+                "name": "백설탕 (White Sugar)", 
+                "image_url": "https://images.unsplash.com/photo-1622484210800-4183d29a531f?w=500&auto=format&fit=crop&q=80"
+            },
+            {
+                "name": "과일 잼 (Fruit Jam Jar)", 
+                "image_url": "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=500&auto=format&fit=crop&q=80"
+            }
         ]
     }
 }
