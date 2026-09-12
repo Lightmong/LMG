@@ -1,10 +1,9 @@
 import streamlit as st
 import requests
 import json
-import os
+import io
+import re
 from PIL import Image
-from google import genai
-from google.genai import types
 import stmol
 import py3Dmol
 
@@ -18,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 하얀색 배경, 스티일링 및 모바일 최우선 CSS 설정
+# 하얀색 배경, 모바일 최우선 UI 스타일링
 st.markdown("""
     <style>
     /* 전체 배경을 하얀색으로 고정 */
@@ -49,7 +48,7 @@ st.markdown("""
         box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1) !important;
     }
     
-    /* 좌상단 다른 사물 찾아보기 버튼 스타일 override */
+    /* 좌상단 다른 사물 찾아보기 버튼 스타일 */
     .reset-btn div.stButton > button:first-child {
         background-color: #F0F0F0 !important;
         color: #000000 !important;
@@ -83,62 +82,114 @@ if 'analysis_data' not in st.session_state:
     st.session_state.analysis_data = None
 
 # -----------------------------------------------------------------------------
-# 3. Helper Functions (AI Vision & PubChem DB API)
+# 3. Helper Functions (Hugging Face Vision AI & Chemical Mapping)
 # -----------------------------------------------------------------------------
-def analyze_image_with_gemini(image):
-    """Computer Vision 기반 객체 인식 및 대표 화학 성분 추정"""
-    api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        st.error("GEMINI_API_KEY가 설정되지 않았습니다. Secrets를 확인해주세요.")
+
+# 사물 키워드에 따른 화학 성분 매칭 사전 (교육용 매핑 데이터베이스)
+OBJECT_TO_CHEMICAL_DB = {
+    "water": {
+        "object_ko": "물병 / 물",
+        "compound_ko": "물",
+        "compound_en": "Water",
+        "formula": "H₂O",
+        "examples": [
+            {"name": "얼음", "keyword": "ice"},
+            {"name": "비", "keyword": "rain"}
+        ]
+    },
+    "apple": {
+        "object_ko": "사과",
+        "compound_ko": "과당 (Fructose)",
+        "compound_en": "Fructose",
+        "formula": "C₆H₁₂O₆",
+        "examples": [
+            {"name": "꿀", "keyword": "honey"},
+            {"name": "포도", "keyword": "grapes"}
+        ]
+    },
+    "pencil": {
+        "object_ko": "연필",
+        "compound_ko": "흑연 (탄소)",
+        "compound_en": "Graphite",
+        "formula": "C",
+        "examples": [
+            {"name": "다이아몬드", "keyword": "diamond"},
+            {"name": "숯", "keyword": "charcoal"}
+        ]
+    },
+    "bottle": {
+        "object_ko": "플라스틱 병",
+        "compound_ko": "폴리에틸렌 테레프탈레이트 (PET)",
+        "compound_en": "Polyethylene terephthalate",
+        "formula": "(C₁₀H₈O₄)n",
+        "examples": [
+            {"name": "합성섬유 옷", "keyword": "polyester clothes"},
+            {"name": "포장용 용기", "keyword": "plastic container"}
+        ]
+    },
+    "default": {
+        "object_ko": "일반 유기물 사물",
+        "compound_ko": "포도당 (Glucose)",
+        "compound_en": "Glucose",
+        "formula": "C₆H₁₂O₆",
+        "examples": [
+            {"name": "빵", "keyword": "bread"},
+            {"name": "쌀밥", "keyword": "rice"}
+        ]
+    }
+}
+
+def query_huggingface_vision(image):
+    """Hugging Face Inference API를 사용해 이미지 속 사물 분석"""
+    hf_token = st.secrets.get("HF_TOKEN")
+    if not hf_token:
+        st.error("HF_TOKEN이 설정되지 않았습니다. Secrets 구성을 확인해주세요.")
         return None
 
-    client = genai.Client(api_key=api_key)
+    # BLIP Image Captioning 모델 (무료 지원 모델)
+    API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
+    headers = {"Authorization": f"Bearer {hf_token}"}
 
-    prompt = """
-    이 사진 속의 주요 사물을 인식하고, 그 사물을 대표하는 가장 주요한 화학 성분(분자) 1개를 추정해주세요.
-    학생들이 친숙하게 화학식을 배울 수 있도록 설명해야 합니다.
-    
-    반드시 아래의 JSON 포맷으로만 응답해주세요. 설명이나 마크다운 태그 없이 pure JSON으로만 응답해야 합니다.
-    
-    {
-      "object_name": "인식된 사물 이름 (예: 물병, 사과, 연필)",
-      "compound_name_ko": "화학물질 한국어명 (예: 물, 과당, 그래핀)",
-      "compound_name_en": "PubChem 검색용 영문 화학물질명 (예: Water, Fructose, Graphite)",
-      "chemical_formula": "화학식 (예: H2O, C6H12O6, C)",
-      "other_examples": [
-        {
-          "name": "같은 성분이 들어있는 다른 사물 1",
-          "image_keyword": "unsplash 검색용 영어 단어 (예: ice)"
-        },
-        {
-          "name": "같은 성분이 들어있는 다른 사물 2",
-          "image_keyword": "unsplash 검색용 영어 단어 (예: rain)"
-        }
-      ]
-    }
-    """
+    # 이미지 파일 버퍼 변환
+    img_byte_arr = io.BytesIO()
+    image.save(img_byte_arr, format='JPEG')
+    img_bytes = img_byte_arr.getvalue()
 
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[image, prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json"
-            )
-        )
-        return json.loads(response.text)
-    except Exception as e:
-        st.error(f"이미지 분석 중 오류가 발생했습니다: {e}")
+        response = requests.post(API_URL, headers=headers, data=img_bytes, timeout=10)
+        if response.status_code == 200:
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                caption = result[0].get("generated_text", "").lower()
+                return caption
         return None
+    except Exception as e:
+        st.error(f"이미지 인식 중 오류가 발생했습니다: {e}")
+        return None
+
+def process_image_analysis(image):
+    """인식된 키워드를 기반으로 화학 성분 및 데이터 매칭"""
+    caption = query_huggingface_vision(image)
+    if not caption:
+        matched_data = OBJECT_TO_CHEMICAL_DB["default"]
+    else:
+        # 키워드 필터링 매칭
+        matched_data = OBJECT_TO_CHEMICAL_DB["default"]
+        for key in OBJECT_TO_CHEMICAL_DB:
+            if key in caption:
+                matched_data = OBJECT_TO_CHEMICAL_DB[key]
+                break
+
+    return matched_data
 
 def fetch_pubchem_sdf(compound_name):
     """PubChem 데이터베이스에서 3D 구조 SDF 데이터 가져오기"""
     try:
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{compound_name}/SDF?record_type=3d"
         res = requests.get(url, timeout=5)
-        if res.status_status_code == 200 and res.text.strip():
+        if res.status_code == 200 and res.text.strip():
             return res.text
-        # 3D 구조가 없으면 2D 구조 시도
+        # 3D 구조가 없을 경우 2D 구조 요청
         url_2d = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{compound_name}/SDF"
         res_2d = requests.get(url_2d, timeout=5)
         if res_2d.status_code == 200:
@@ -152,7 +203,7 @@ def render_3d_molecule(sdf_data):
     view = py3Dmol.view(width=400, height=350)
     view.addModel(sdf_data, 'sdf')
     
-    # 원자별 고유 색상(CPK Color Standard) 반영 및 구-막대(Stick+Sphere) 스타일
+    # 원자별 고유 색상(CPK Color Standard) 및 Stick+Sphere 스타일 적용
     view.setStyle({'stick': {'radius': 0.15}, 'sphere': {'scale': 0.25}})
     view.zoomTo()
     return view
@@ -165,20 +216,18 @@ def render_3d_molecule(sdf_data):
 if st.session_state.stage == 'start':
     st.markdown('<div class="title-text">성분돋보기</div>', unsafe_allow_html=True)
     
-    # 정 가운데 위치 배치를 위한 여백
     st.write("##")
     st.write("##")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        # 사진 촬영/업로드 버튼 (모바일 호환)
+        # 사진 촬영/업로드 버튼 (모바일 겸용)
         uploaded_file = st.file_uploader(
             "사진 촬영 및 분석", 
             type=["jpg", "jpeg", "png"],
             label_visibility="collapsed"
         )
         
-        # 버튼 스타일을 적용한 모의 UI 및 액션 Trigger
         if uploaded_file is not None:
             st.session_state.uploaded_image = Image.open(uploaded_file)
             st.session_state.stage = 'analyzing'
@@ -191,7 +240,7 @@ elif st.session_state.stage == 'analyzing':
     
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        # 정 가운데 회전하는 애니메이션 / 로딩 표출
+        # 검은색 회전 화살표 애니메이션 및 메시지
         st.markdown("""
             <div style="text-align: center; margin-top: 40px;">
                 <div style="
@@ -215,20 +264,17 @@ elif st.session_state.stage == 'analyzing':
             </div>
         """, unsafe_allow_html=True)
     
-    # 백그라운드 분석 실행
+    # 분석 실행
     if st.session_state.get('uploaded_image'):
-        result_json = analyze_image_with_gemini(st.session_state.uploaded_image)
-        if result_json:
-            sdf_data = fetch_pubchem_sdf(result_json.get('compound_name_en', ''))
-            st.session_state.analysis_data = {
-                'info': result_json,
-                'sdf': sdf_data
-            }
-            st.session_state.stage = 'result'
-            st.rerun()
-        else:
-            st.session_state.stage = 'start'
-            st.rerun()
+        chemical_info = process_image_analysis(st.session_state.uploaded_image)
+        sdf_data = fetch_pubchem_sdf(chemical_info['compound_en'])
+        
+        st.session_state.analysis_data = {
+            'info': chemical_info,
+            'sdf': sdf_data
+        }
+        st.session_state.stage = 'result'
+        st.rerun()
 
 # --- [분석 완료 화면] ---
 elif st.session_state.stage == 'result':
@@ -236,7 +282,7 @@ elif st.session_state.stage == 'result':
     info = data['info']
     sdf = data['sdf']
     
-    # 상단 헤더 영역 (좌: 재촬영 버튼, 우: 타이틀)
+    # 상단 버튼 및 제목
     top_col1, top_col2 = st.columns([1, 2])
     with top_col1:
         st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
@@ -249,15 +295,15 @@ elif st.session_state.stage == 'result':
     st.markdown('<div class="title-text" style="margin-top:-20px;">성분돋보기</div>', unsafe_allow_html=True)
     st.divider()
 
-    # 메인 콘텐츠 영역 (좌: 분자식 및 3D 모형, 우: 이 분자식이 있는 다른 사물)
+    # 메인 분석 결과 (좌: 3D 분자 모형, 우: 이 분자식이 있는 다른 사물 예시)
     main_col1, main_col2 = st.columns([3, 2])
 
     with main_col1:
-        # 분자식 검은색 글씨 표시 및 안내
+        # 분자식 검은색 글씨 표시
         st.markdown(f"""
             <div style="text-align: center; margin-bottom: 15px;">
-                <h2 style="color: #000000; margin:0;">{info.get('compound_name_ko')} ({info.get('chemical_formula')})</h2>
-                <p style="color: #333333; font-size: 0.95rem;">마우스로 분자를 직접 클릭하여 360도 회전시켜 보세요!</p>
+                <h2 style="color: #000000; margin:0;">{info.get('compound_ko')} ({info.get('formula')})</h2>
+                <p style="color: #333333; font-size: 0.95rem;">마우스나 손가락으로 분자 모형을 돌려보세요!</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -266,25 +312,26 @@ elif st.session_state.stage == 'result':
             view = render_3d_molecule(sdf)
             stmol.showfree(view, height=350, width=400)
         else:
-            st.warning("분자 3D 구조 데이터를 불러오지 못했습니다.")
+            st.warning("PubChem 데이터베이스에서 분자 3D 구도를 불러올 수 없습니다.")
 
     with main_col2:
-        # 우상단 다른 사물 안내
+        # 우상단 다른 사물 표시
         st.markdown("""
             <h4 style="color: #000000; margin-bottom: 15px; font-weight: bold;">
                 이 분자식이 있는 다른 사물
             </h4>
         """, unsafe_allow_html=True)
 
-        examples = info.get('other_examples', [])
+        examples = info.get('examples', [])
         for ex in examples:
             ex_name = ex.get('name', '예시 사물')
-            keyword = ex.get('image_keyword', 'object')
-            # Unsplash Source API를 이용해 관련 예시 이미지 노출
-            img_url = f"https://source.unsplash.com/300x200/?{keyword}"
+            keyword = ex.get('keyword', 'object')
+            
+            # Wikimedia / Unsplash 기반 예시 이미지 노출
+            img_url = f"https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=300" if keyword == "ice" else f"https://source.unsplash.com/300x200/?{keyword}"
 
             st.write(f"**• {ex_name}**")
-            st.image(img_url, use_column_width=True)
+            st.image(f"https://picsum.photos/seed/{keyword}/300/200", use_column_width=True)
 
 # -----------------------------------------------------------------------------
 # 5. Footer Disclaimer (Do 제약조건 필수 항목)
