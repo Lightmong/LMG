@@ -16,16 +16,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 하얀색 배경, 모바일 최우선 UI 스타일링
 st.markdown("""
     <style>
-    /* 전체 배경을 하얀색으로 고정 */
     .stApp {
         background-color: #FFFFFF;
         color: #000000;
     }
-    
-    /* 상단 검은색 제목 */
     .title-text {
         color: #000000;
         text-align: center;
@@ -34,8 +30,6 @@ st.markdown("""
         margin-top: 10px;
         margin-bottom: 20px;
     }
-
-    /* 하늘색 버튼 스타일 */
     div.stButton > button:first-child {
         background-color: #87CEEB !important;
         color: #000000 !important;
@@ -44,10 +38,7 @@ st.markdown("""
         padding: 12px 28px !important;
         font-size: 1.1rem !important;
         font-weight: bold !important;
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1) !important;
     }
-    
-    /* 좌상단 다른 사물 찾아보기 버튼 스타일 */
     .reset-btn div.stButton > button:first-child {
         background-color: #F0F0F0 !important;
         color: #000000 !important;
@@ -55,8 +46,6 @@ st.markdown("""
         padding: 6px 14px !important;
         font-size: 0.9rem !important;
     }
-
-    /* 결과 요약 상자 스타일 */
     .result-box {
         background-color: #F8F9FA;
         border-radius: 12px;
@@ -65,8 +54,6 @@ st.markdown("""
         margin-bottom: 20px;
         text-align: center;
     }
-
-    /* 하단 면책 조항 */
     .disclaimer {
         position: fixed;
         bottom: 10px;
@@ -86,133 +73,90 @@ st.markdown("""
 # 2. Session State Management
 # -----------------------------------------------------------------------------
 if 'stage' not in st.session_state:
-    st.session_state.stage = 'start'  # 'start', 'analyzing', 'result'
+    st.session_state.stage = 'start'
 if 'analysis_data' not in st.session_state:
     st.session_state.analysis_data = None
 
 # -----------------------------------------------------------------------------
-# 3. Helper Functions & Chemical Database
+# 3. Helper Functions & Extended Chemical Database
 # -----------------------------------------------------------------------------
 
-# 키워드별 세분화된 사물 및 화학 성분 DB
 OBJECT_TO_CHEMICAL_DB = {
     "water": {
-        "keywords": ["water", "liquid", "drink", "cup", "glass", "beverage", "bottle of water"],
+        "keywords": ["water", "liquid", "drink", "cup", "glass", "beverage", "bottle", "clear", "plastic bottle"],
         "object_ko": "물 / 수분 음료",
         "compound_ko": "물 (Water)",
         "compound_en": "Water",
         "formula": "H₂O",
         "examples": [
-            {
-                "name": "각얼음 (Ice Cubes)", 
-                "image_url": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&auto=format&fit=crop&q=80"
-            },
-            {
-                "name": "빗물 (Raindrops)", 
-                "image_url": "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=500&auto=format&fit=crop&q=80"
-            }
+            {"name": "각얼음 (Ice Cubes)", "image_url": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&auto=format&fit=crop&q=80"},
+            {"name": "빗물 (Raindrops)", "image_url": "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "coffee": {
-        "keywords": ["coffee", "mug", "espresso", "tea", "caffeine"],
+        "keywords": ["coffee", "mug", "espresso", "tea", "caffeine", "dark", "drink", "cup"],
         "object_ko": "커피 / 차",
         "compound_ko": "카페인 (Caffeine)",
         "compound_en": "Caffeine",
         "formula": "C₈H₁₀N₄O₂",
         "examples": [
-            {
-                "name": "녹차 (Green Tea)", 
-                "image_url": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=500&auto=format&fit=crop&q=80"
-            },
-            {
-                "name": "에스프레소 커피", 
-                "image_url": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80"
-            }
+            {"name": "녹차 (Green Tea)", "image_url": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=500&auto=format&fit=crop&q=80"},
+            {"name": "에스프레소 커피", "image_url": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "apple": {
-        "keywords": ["apple", "fruit", "orange", "banana", "sweet", "strawberry"],
+        "keywords": ["apple", "fruit", "orange", "banana", "sweet", "strawberry", "red", "yellow", "green"],
         "object_ko": "과일 / 천연 당분",
         "compound_ko": "과당 (Fructose)",
         "compound_en": "Fructose",
         "formula": "C₆H₁₂O₆",
         "examples": [
-            {
-                "name": "천연 꿀 (Honey)", 
-                "image_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&auto=format&fit=crop&q=80"
-            },
-            {
-                "name": "포도 (Grapes)", 
-                "image_url": "https://images.unsplash.com/photo-1537640538966-79f369143f8f?w=500&auto=format&fit=crop&q=80"
-            }
+            {"name": "천연 꿀 (Honey)", "image_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&auto=format&fit=crop&q=80"},
+            {"name": "포도 (Grapes)", "image_url": "https://images.unsplash.com/photo-1537640538966-79f369143f8f?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "paper": {
-        "keywords": ["paper", "book", "box", "cardboard", "wood", "table", "notebook"],
+        "keywords": ["paper", "book", "box", "cardboard", "wood", "table", "notebook", "white", "page", "text"],
         "object_ko": "종이 / 목재류",
         "compound_ko": "셀룰로오스 (Cellulose)",
         "compound_en": "Cellulose",
         "formula": "(C₆H₁₀O₅)n",
         "examples": [
-            {
-                "name": "면 옷 (Cotton)", 
-                "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop&q=80"
-            },
-            {
-                "name": "책 / 종이 (Books)", 
-                "image_url": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=500&auto=format&fit=crop&q=80"
-            }
+            {"name": "면 옷 (Cotton)", "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop&q=80"},
+            {"name": "책 / 종이 (Books)", "image_url": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "salt": {
-        "keywords": ["salt", "white powder", "seasoning", "dish", "plate"],
+        "keywords": ["salt", "white powder", "seasoning", "dish", "plate", "bowl", "white"],
         "object_ko": "소금 / 조미료",
         "compound_ko": "염화 나트륨 (Sodium Chloride)",
         "compound_en": "Sodium chloride",
         "formula": "NaCl",
         "examples": [
-            {
-                "name": "바닷물 (Sea Water)", 
-                "image_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80"
-            },
-            {
-                "name": "소금 결정 (Salt)", 
-                "image_url": "https://images.unsplash.com/photo-1626197031507-c170a04d2a09?w=500&auto=format&fit=crop&q=80"
-            }
+            {"name": "바닷물 (Sea Water)", "image_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80"},
+            {"name": "소금 결정 (Salt)", "image_url": "https://images.unsplash.com/photo-1626197031507-c170a04d2a09?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "pencil": {
-        "keywords": ["pencil", "pen", "graphite", "black"],
+        "keywords": ["pencil", "pen", "graphite", "black", "writing", "stick"],
         "object_ko": "연필 / 필기구",
         "compound_ko": "흑연 (Graphite / Carbon)",
         "compound_en": "Graphite",
         "formula": "C",
         "examples": [
-            {
-                "name": "숯 (Charcoal)", 
-                "image_url": "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=500&auto=format&fit=crop&q=80"
-            },
-            {
-                "name": "다이아몬드 (Diamond)", 
-                "image_url": "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=500&auto=format&fit=crop&q=80"
-            }
+            {"name": "숯 (Charcoal)", "image_url": "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=500&auto=format&fit=crop&q=80"},
+            {"name": "다이아몬드 (Diamond)", "image_url": "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "bread": {
-        "keywords": ["bread", "cake", "rice", "cookie", "noodle", "pasta", "food"],
+        "keywords": ["bread", "cake", "rice", "cookie", "noodle", "pasta", "food", "toast", "sandwich", "dough"],
         "object_ko": "빵 / 밥 / 탄수화물",
         "compound_ko": "녹말 (Starch)",
         "compound_en": "Starch",
         "formula": "(C₆H₁₀O₅)n",
         "examples": [
-            {
-                "name": "감자 (Potatoes)", 
-                "image_url": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=80"
-            },
-            {
-                "name": "옥수수 (Corn)", 
-                "image_url": "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=500&auto=format&fit=crop&q=80"
-            }
+            {"name": "감자 (Potatoes)", "image_url": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=80"},
+            {"name": "옥수수 (Corn)", "image_url": "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "default": {
@@ -222,23 +166,16 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Glucose",
         "formula": "C₆H₁₂O₆",
         "examples": [
-            {
-                "name": "백설탕 (White Sugar)", 
-                "image_url": "https://images.unsplash.com/photo-1622484210800-4183d29a531f?w=500&auto=format&fit=crop&q=80"
-            },
-            {
-                "name": "과일 잼 (Fruit Jam Jar)", 
-                "image_url": "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=500&auto=format&fit=crop&q=80"
-            }
+            {"name": "백설탕 (White Sugar)", "image_url": "https://images.unsplash.com/photo-1622484210800-4183d29a531f?w=500&auto=format&fit=crop&q=80"},
+            {"name": "과일 잼 (Fruit Jam Jar)", "image_url": "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=500&auto=format&fit=crop&q=80"}
         ]
     }
 }
 
 def query_huggingface_vision(image):
-    """Hugging Face Inference API를 사용해 이미지 속 사물 분석"""
     hf_token = st.secrets.get("HF_TOKEN")
     if not hf_token:
-        st.error("HF_TOKEN이 설정되지 않았습니다. Secrets 구성을 확인해주세요.")
+        st.error("HF_TOKEN이 설정되지 않았습니다.")
         return None
 
     API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
@@ -253,17 +190,13 @@ def query_huggingface_vision(image):
         if response.status_code == 200:
             result = response.json()
             if isinstance(result, list) and len(result) > 0:
-                caption = result[0].get("generated_text", "").lower()
-                return caption
+                return result[0].get("generated_text", "").lower()
         return None
     except Exception as e:
-        st.error(f"이미지 인식 중 오류가 발생했습니다: {e}")
         return None
 
 def process_image_analysis(image):
-    """인식된 영문 문장에서 매칭되는 사물 및 화학 성분 검색"""
     caption = query_huggingface_vision(image)
-    
     if not caption:
         return OBJECT_TO_CHEMICAL_DB["default"], "인식 불가"
 
@@ -284,7 +217,6 @@ def process_image_analysis(image):
     return matched_data, caption
 
 def fetch_pubchem_sdf(compound_name):
-    """PubChem 데이터베이스에서 3D 구조 SDF 데이터 가져오기"""
     try:
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{compound_name}/SDF?record_type=3d"
         res = requests.get(url, timeout=5)
@@ -299,7 +231,6 @@ def fetch_pubchem_sdf(compound_name):
         return None
 
 def render_3d_molecule(sdf_data):
-    """Py3Dmol을 이용한 3D 분자 모형 렌더링"""
     view = py3Dmol.view(width=400, height=350)
     view.addModel(sdf_data, 'sdf')
     view.setStyle({'stick': {'radius': 0.15}, 'sphere': {'scale': 0.25}})
@@ -310,7 +241,6 @@ def render_3d_molecule(sdf_data):
 # 4. App Screen Layouts
 # -----------------------------------------------------------------------------
 
-# --- [시작 화면] ---
 if st.session_state.stage == 'start':
     st.markdown('<div class="title-text">성분돋보기</div>', unsafe_allow_html=True)
     st.write("##")
@@ -318,7 +248,6 @@ if st.session_state.stage == 'start':
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         tab1, tab2 = st.tabs(["📸 사진 촬영하기", "📁 파일 선택하기"])
-        
         with tab1:
             camera_file = st.camera_input("사물을 카메라로 촬영하세요", label_visibility="collapsed")
             if camera_file is not None:
@@ -327,17 +256,12 @@ if st.session_state.stage == 'start':
                 st.rerun()
 
         with tab2:
-            uploaded_file = st.file_uploader(
-                "사진 파일 선택", 
-                type=["jpg", "jpeg", "png"],
-                label_visibility="collapsed"
-            )
+            uploaded_file = st.file_uploader("사진 파일 선택", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
             if uploaded_file is not None:
                 st.session_state.uploaded_image = Image.open(uploaded_file)
                 st.session_state.stage = 'analyzing'
                 st.rerun()
 
-# --- [분석 중 화면] ---
 elif st.session_state.stage == 'analyzing':
     st.markdown('<div class="title-text">성분돋보기</div>', unsafe_allow_html=True)
     st.write("##")
@@ -346,22 +270,7 @@ elif st.session_state.stage == 'analyzing':
     with col2:
         st.markdown("""
             <div style="text-align: center; margin-top: 40px;">
-                <div style="
-                    display: inline-block;
-                    width: 50px;
-                    height: 50px;
-                    border: 5px solid #E0E0E0;
-                    border-top: 5px solid #000000;
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                "></div>
-                <style>
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                </style>
-                <p style="color: #000000; font-size: 1.2rem; font-weight: bold; margin-top: 20px;">
+                <p style="color: #000000; font-size: 1.2rem; font-weight: bold;">
                     사물 및 화학 성분을 분석 중입니다...
                 </p>
             </div>
@@ -379,7 +288,6 @@ elif st.session_state.stage == 'analyzing':
         st.session_state.stage = 'result'
         st.rerun()
 
-# --- [분석 완료 화면] ---
 elif st.session_state.stage == 'result':
     data = st.session_state.analysis_data
     info = data['info']
@@ -397,7 +305,19 @@ elif st.session_state.stage == 'result':
     
     st.markdown('<div class="title-text" style="margin-top:-20px;">성분돋보기</div>', unsafe_allow_html=True)
     
-    # [1] AI가 인식한 사물 및 [2] 화학 성분/분자식 안내 요약 상자
+    # 사물 변경 보완 옵션
+    selected_key = st.selectbox(
+        "💡 인식 결과가 다른가요? 사물을 직접 선택해 보세요:",
+        options=list(OBJECT_TO_CHEMICAL_DB.keys()),
+        format_func=lambda x: OBJECT_TO_CHEMICAL_DB[x]["object_ko"],
+        index=list(OBJECT_TO_CHEMICAL_DB.keys()).index("water") if info["object_ko"] == "물 / 수분 음료" else 0
+    )
+    
+    # 사용자가 선택 항목을 변경한 경우 데이터 업데이트
+    if OBJECT_TO_CHEMICAL_DB[selected_key]["object_ko"] != info["object_ko"]:
+        info = OBJECT_TO_CHEMICAL_DB[selected_key]
+        sdf = fetch_pubchem_sdf(info['compound_en'])
+
     st.markdown(f"""
         <div class="result-box">
             <span style="color: #555555; font-size: 0.95rem;">📷 인식된 사물:</span>
@@ -414,7 +334,6 @@ elif st.session_state.stage == 'result':
         st.markdown("""
             <div style="text-align: center; margin-bottom: 10px;">
                 <h3 style="color: #000000; margin:0;">3D 분자 구조 모형</h3>
-                <p style="color: #666666; font-size: 0.85rem;">마우스나 터치로 돌려볼 수 있습니다.</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -440,9 +359,6 @@ elif st.session_state.stage == 'result':
             if img_url:
                 st.image(img_url, use_container_width=True)
 
-# -----------------------------------------------------------------------------
-# 5. Footer Disclaimer
-# -----------------------------------------------------------------------------
 st.markdown("""
     <div class="disclaimer">
         본 결과는 AI 기반 추정치이며 실제와 다를 수 있습니다.
