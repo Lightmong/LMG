@@ -1,2 +1,6 @@
 streamlit
 goolge-genai
+requests
+stmol
+py3Dmol
+pillow
