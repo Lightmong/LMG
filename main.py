@@ -321,7 +321,7 @@ elif st.session_state.stage == 'result':
             keyword = ex.get('keyword', 'object')
             
             st.write(f"**• {ex_name}**")
-            st.image(f"https://picsum.photos/seed/{keyword}/300/200", use_column_width=True)
+            st.image(f"https://picsum.photos/seed/{keyword}/300/200", use_container_width=True)
 
 # -----------------------------------------------------------------------------
 # 5. Footer Disclaimer
