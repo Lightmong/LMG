@@ -213,7 +213,6 @@ if st.session_state.stage == 'start':
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        # 탭 분리로 사진 직접 촬영 및 기존 파일 업로드 둘 다 제공
         tab1, tab2 = st.tabs(["📸 사진 촬영하기", "📁 파일 선택하기"])
         
         with tab1:
@@ -305,7 +304,7 @@ elif st.session_state.stage == 'result':
 
         if sdf:
             view = render_3d_molecule(sdf)
-            stmol.showfree(view, height=350, width=400)
+            stmol.showmol(view, height=350, width=400)
         else:
             st.warning("PubChem 데이터베이스에서 분자 3D 구도를 불러올 수 없습니다.")
 
@@ -325,7 +324,7 @@ elif st.session_state.stage == 'result':
             st.image(f"https://picsum.photos/seed/{keyword}/300/200", use_column_width=True)
 
 # -----------------------------------------------------------------------------
-# 5. Footer Disclaimer (Do 제약조건 필수 항목)
+# 5. Footer Disclaimer
 # -----------------------------------------------------------------------------
 st.markdown("""
     <div class="disclaimer">
