@@ -56,6 +56,16 @@ st.markdown("""
         font-size: 0.9rem !important;
     }
 
+    /* 결과 요약 상자 스타일 */
+    .result-box {
+        background-color: #F8F9FA;
+        border-radius: 12px;
+        padding: 18px;
+        border: 1px solid #E9ECEF;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
     /* 하단 면책 조항 */
     .disclaimer {
         position: fixed;
@@ -81,13 +91,14 @@ if 'analysis_data' not in st.session_state:
     st.session_state.analysis_data = None
 
 # -----------------------------------------------------------------------------
-# 3. Helper Functions & Chemical Database (정확한 대표 이미지 URL 매칭)
+# 3. Helper Functions & Chemical Database
 # -----------------------------------------------------------------------------
 
+# 키워드별 세분화된 사물 및 화학 성분 DB
 OBJECT_TO_CHEMICAL_DB = {
     "water": {
-        "keywords": ["water", "liquid", "drink", "cup", "glass", "beverage"],
-        "object_ko": "물 / 음료수",
+        "keywords": ["water", "liquid", "drink", "cup", "glass", "beverage", "bottle of water"],
+        "object_ko": "물 / 수분 음료",
         "compound_ko": "물 (Water)",
         "compound_en": "Water",
         "formula": "H₂O",
@@ -103,7 +114,7 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "coffee": {
-        "keywords": ["coffee", "mug", "espresso", "tea"],
+        "keywords": ["coffee", "mug", "espresso", "tea", "caffeine"],
         "object_ko": "커피 / 차",
         "compound_ko": "카페인 (Caffeine)",
         "compound_en": "Caffeine",
@@ -120,8 +131,8 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "apple": {
-        "keywords": ["apple", "fruit", "orange", "banana", "sweet"],
-        "object_ko": "과일 / 단 음식",
+        "keywords": ["apple", "fruit", "orange", "banana", "sweet", "strawberry"],
+        "object_ko": "과일 / 천연 당분",
         "compound_ko": "과당 (Fructose)",
         "compound_en": "Fructose",
         "formula": "C₆H₁₂O₆",
@@ -137,8 +148,8 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "paper": {
-        "keywords": ["paper", "book", "box", "cardboard", "wood", "table"],
-        "object_ko": "종이 / 나무 제품",
+        "keywords": ["paper", "book", "box", "cardboard", "wood", "table", "notebook"],
+        "object_ko": "종이 / 목재류",
         "compound_ko": "셀룰로오스 (Cellulose)",
         "compound_en": "Cellulose",
         "formula": "(C₆H₁₀O₅)n",
@@ -154,8 +165,8 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "salt": {
-        "keywords": ["salt", "white powder", "food", "dish", "plate"],
-        "object_ko": "소금 / 양념",
+        "keywords": ["salt", "white powder", "seasoning", "dish", "plate"],
+        "object_ko": "소금 / 조미료",
         "compound_ko": "염화 나트륨 (Sodium Chloride)",
         "compound_en": "Sodium chloride",
         "formula": "NaCl",
@@ -171,8 +182,8 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "pencil": {
-        "keywords": ["pencil", "pen", "black"],
-        "object_ko": "연필 / 흑연",
+        "keywords": ["pencil", "pen", "graphite", "black"],
+        "object_ko": "연필 / 필기구",
         "compound_ko": "흑연 (Graphite / Carbon)",
         "compound_en": "Graphite",
         "formula": "C",
@@ -188,8 +199,8 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "bread": {
-        "keywords": ["bread", "cake", "rice", "food", "cookie"],
-        "object_ko": "빵 / 밥 / 곡물",
+        "keywords": ["bread", "cake", "rice", "cookie", "noodle", "pasta", "food"],
+        "object_ko": "빵 / 밥 / 탄수화물",
         "compound_ko": "녹말 (Starch)",
         "compound_en": "Starch",
         "formula": "(C₆H₁₀O₅)n",
@@ -206,7 +217,7 @@ OBJECT_TO_CHEMICAL_DB = {
     },
     "default": {
         "keywords": [],
-        "object_ko": "일반 유기물 사물",
+        "object_ko": "설탕 / 단 음식",
         "compound_ko": "포도당 (Glucose)",
         "compound_en": "Glucose",
         "formula": "C₆H₁₂O₆",
@@ -250,11 +261,11 @@ def query_huggingface_vision(image):
         return None
 
 def process_image_analysis(image):
-    """인식된 캡션 단어를 기반으로 화학 성분 및 데이터 매칭"""
+    """인식된 영문 문장에서 매칭되는 사물 및 화학 성분 검색"""
     caption = query_huggingface_vision(image)
     
     if not caption:
-        return OBJECT_TO_CHEMICAL_DB["default"], "인식 불가 (기본값)"
+        return OBJECT_TO_CHEMICAL_DB["default"], "인식 불가"
 
     matched_data = None
     for key, data in OBJECT_TO_CHEMICAL_DB.items():
@@ -288,7 +299,7 @@ def fetch_pubchem_sdf(compound_name):
         return None
 
 def render_3d_molecule(sdf_data):
-    """Py3Dmol을 이용해 원자별 고유 색상이 적용된 상호작용 3D 분자 모형 렌더링"""
+    """Py3Dmol을 이용한 3D 분자 모형 렌더링"""
     view = py3Dmol.view(width=400, height=350)
     view.addModel(sdf_data, 'sdf')
     view.setStyle({'stick': {'radius': 0.15}, 'sphere': {'scale': 0.25}})
@@ -302,7 +313,6 @@ def render_3d_molecule(sdf_data):
 # --- [시작 화면] ---
 if st.session_state.stage == 'start':
     st.markdown('<div class="title-text">성분돋보기</div>', unsafe_allow_html=True)
-    
     st.write("##")
     
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -352,7 +362,7 @@ elif st.session_state.stage == 'analyzing':
                     }
                 </style>
                 <p style="color: #000000; font-size: 1.2rem; font-weight: bold; margin-top: 20px;">
-                    분석 중입니다...
+                    사물 및 화학 성분을 분석 중입니다...
                 </p>
             </div>
         """, unsafe_allow_html=True)
@@ -386,16 +396,25 @@ elif st.session_state.stage == 'result':
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="title-text" style="margin-top:-20px;">성분돋보기</div>', unsafe_allow_html=True)
-    st.caption(f"🤖 AI 인식 키워드: `{caption}`")
-    st.divider()
+    
+    # [1] AI가 인식한 사물 및 [2] 화학 성분/분자식 안내 요약 상자
+    st.markdown(f"""
+        <div class="result-box">
+            <span style="color: #555555; font-size: 0.95rem;">📷 인식된 사물:</span>
+            <strong style="color: #000000; font-size: 1.1rem; margin-right: 15px;"> {info.get('object_ko')}</strong>
+            <br>
+            <span style="color: #555555; font-size: 0.95rem;">🧪 대표 화학 성분:</span>
+            <strong style="color: #0066CC; font-size: 1.2rem;"> {info.get('compound_ko')} [{info.get('formula')}]</strong>
+        </div>
+    """, unsafe_allow_html=True)
 
     main_col1, main_col2 = st.columns([3, 2])
 
     with main_col1:
-        st.markdown(f"""
-            <div style="text-align: center; margin-bottom: 15px;">
-                <h2 style="color: #000000; margin:0;">{info.get('compound_ko')} ({info.get('formula')})</h2>
-                <p style="color: #333333; font-size: 0.95rem;">마우스나 손가락으로 분자 모형을 직접 돌려보세요!</p>
+        st.markdown("""
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h3 style="color: #000000; margin:0;">3D 분자 구조 모형</h3>
+                <p style="color: #666666; font-size: 0.85rem;">마우스나 터치로 돌려볼 수 있습니다.</p>
             </div>
         """, unsafe_allow_html=True)
 
