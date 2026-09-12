@@ -83,7 +83,7 @@ if 'analysis_data' not in st.session_state:
 
 OBJECT_TO_CHEMICAL_DB = {
     "water": {
-        "keywords": ["water", "liquid", "drink", "cup", "glass", "beverage", "bottle", "clear", "plastic bottle"],
+        "keywords": ["water", "pure water", "mineral water", "water bottle", "raindrop"],
         "object_ko": "물 / 수분 음료",
         "compound_ko": "물 (Water)",
         "compound_en": "Water",
@@ -94,7 +94,7 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "coffee": {
-        "keywords": ["coffee", "mug", "espresso", "tea", "caffeine", "dark", "drink", "cup"],
+        "keywords": ["coffee", "espresso", "latte", "caffeine", "tea", "mug"],
         "object_ko": "커피 / 차",
         "compound_ko": "카페인 (Caffeine)",
         "compound_en": "Caffeine",
@@ -105,7 +105,7 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "apple": {
-        "keywords": ["apple", "fruit", "orange", "banana", "sweet", "strawberry", "red", "yellow", "green"],
+        "keywords": ["apple", "fruit", "orange", "banana", "strawberry", "grape"],
         "object_ko": "과일 / 천연 당분",
         "compound_ko": "과당 (Fructose)",
         "compound_en": "Fructose",
@@ -116,7 +116,7 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "paper": {
-        "keywords": ["paper", "book", "box", "cardboard", "wood", "table", "notebook", "white", "page", "text"],
+        "keywords": ["paper", "book", "cardboard", "notebook", "document", "letter"],
         "object_ko": "종이 / 목재류",
         "compound_ko": "셀룰로오스 (Cellulose)",
         "compound_en": "Cellulose",
@@ -127,7 +127,7 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "salt": {
-        "keywords": ["salt", "white powder", "seasoning", "dish", "plate", "bowl", "white"],
+        "keywords": ["salt", "salty", "seasoning", "white powder"],
         "object_ko": "소금 / 조미료",
         "compound_ko": "염화 나트륨 (Sodium Chloride)",
         "compound_en": "Sodium chloride",
@@ -138,7 +138,7 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "pencil": {
-        "keywords": ["pencil", "pen", "graphite", "black", "writing", "stick"],
+        "keywords": ["pencil", "pen", "graphite", "marker"],
         "object_ko": "연필 / 필기구",
         "compound_ko": "흑연 (Graphite / Carbon)",
         "compound_en": "Graphite",
@@ -149,7 +149,7 @@ OBJECT_TO_CHEMICAL_DB = {
         ]
     },
     "bread": {
-        "keywords": ["bread", "cake", "rice", "cookie", "noodle", "pasta", "food", "toast", "sandwich", "dough"],
+        "keywords": ["bread", "cake", "toast", "sandwich", "rice", "noodle", "pasta", "cookie"],
         "object_ko": "빵 / 밥 / 탄수화물",
         "compound_ko": "녹말 (Starch)",
         "compound_en": "Starch",
@@ -200,12 +200,14 @@ def process_image_analysis(image):
     if not caption:
         return OBJECT_TO_CHEMICAL_DB["default"], "인식 불가"
 
+    words = caption.lower().replace(".", "").replace(",", "").split()
+
     matched_data = None
     for key, data in OBJECT_TO_CHEMICAL_DB.items():
         if key == "default":
             continue
         for kw in data["keywords"]:
-            if kw in caption:
+            if kw in words or kw in caption:
                 matched_data = data
                 break
         if matched_data:
@@ -305,15 +307,18 @@ elif st.session_state.stage == 'result':
     
     st.markdown('<div class="title-text" style="margin-top:-20px;">성분돋보기</div>', unsafe_allow_html=True)
     
-    # 사물 변경 보완 옵션
+    # 사물 직접 선택 보완 메뉴
+    keys_list = list(OBJECT_TO_CHEMICAL_DB.keys())
+    matched_key = next((k for k, v in OBJECT_TO_CHEMICAL_DB.items() if v["object_ko"] == info["object_ko"]), "default")
+    default_index = keys_list.index(matched_key) if matched_key in keys_list else 0
+
     selected_key = st.selectbox(
         "💡 인식 결과가 다른가요? 사물을 직접 선택해 보세요:",
-        options=list(OBJECT_TO_CHEMICAL_DB.keys()),
+        options=keys_list,
         format_func=lambda x: OBJECT_TO_CHEMICAL_DB[x]["object_ko"],
-        index=list(OBJECT_TO_CHEMICAL_DB.keys()).index("water") if info["object_ko"] == "물 / 수분 음료" else 0
+        index=default_index
     )
     
-    # 사용자가 선택 항목을 변경한 경우 데이터 업데이트
     if OBJECT_TO_CHEMICAL_DB[selected_key]["object_ko"] != info["object_ko"]:
         info = OBJECT_TO_CHEMICAL_DB[selected_key]
         sdf = fetch_pubchem_sdf(info['compound_en'])
