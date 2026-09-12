@@ -56,6 +56,13 @@ st.markdown("""
         font-size: 0.9rem !important;
     }
 
+    /* 예시 카드 스타일 */
+    .example-card {
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+
     /* 하단 면책 조항 */
     .disclaimer {
         position: fixed;
@@ -81,10 +88,10 @@ if 'analysis_data' not in st.session_state:
     st.session_state.analysis_data = None
 
 # -----------------------------------------------------------------------------
-# 3. Helper Functions (Hugging Face Vision AI & Chemical Mapping)
+# 3. Helper Functions & Chemical Database
 # -----------------------------------------------------------------------------
 
-# 사물 키워드 및 다양한 카테고리별 화학 성분 매칭 데이터베이스 (확장 버전)
+# 실제 주제에 매칭되는 Unsplash 고화질 사진 URL 적용
 OBJECT_TO_CHEMICAL_DB = {
     "water": {
         "keywords": ["water", "liquid", "drink", "cup", "glass", "beverage"],
@@ -93,8 +100,8 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Water",
         "formula": "H₂O",
         "examples": [
-            {"name": "얼음", "keyword": "ice"},
-            {"name": "비", "keyword": "rain"}
+            {"name": "얼음 (Ice)", "image_url": "https://images.unsplash.com/photo-1516715094483-75da7dee9758?w=500&auto=format&fit=crop&q=80"},
+            {"name": "빗물 (Rainwater)", "image_url": "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "coffee": {
@@ -104,8 +111,8 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Caffeine",
         "formula": "C₈H₁₀N₄O₂",
         "examples": [
-            {"name": "녹차", "keyword": "green tea"},
-            {"name": "에너지 음료", "keyword": "energy drink"}
+            {"name": "녹차 (Green Tea)", "image_url": "https://images.unsplash.com/photo-1627435601361-ec25f5b1d0e5?w=500&auto=format&fit=crop&q=80"},
+            {"name": "에너지 음료 (Energy Drink)", "image_url": "https://images.unsplash.com/photo-1622543925917-763c34d1a86e?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "apple": {
@@ -115,8 +122,8 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Fructose",
         "formula": "C₆H₁₂O₆",
         "examples": [
-            {"name": "꿀", "keyword": "honey"},
-            {"name": "포도", "keyword": "grapes"}
+            {"name": "천연 꿀 (Honey)", "image_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&auto=format&fit=crop&q=80"},
+            {"name": "포도 (Grapes)", "image_url": "https://images.unsplash.com/photo-1537640538966-79f369143f8f?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "paper": {
@@ -126,30 +133,30 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Cellulose",
         "formula": "(C₆H₁₀O₅)n",
         "examples": [
-            {"name": "면 옷", "keyword": "cotton shirt"},
-            {"name": "휴지", "keyword": "tissue paper"}
+            {"name": "순면 옷 (Cotton)", "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop&q=80"},
+            {"name": "책 / 종이 (Book)", "image_url": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "salt": {
         "keywords": ["salt", "white powder", "food", "dish", "plate"],
-        "object_ko": "소금 / 음료",
+        "object_ko": "소금 / 양념",
         "compound_ko": "염화 나트륨 (Sodium Chloride)",
         "compound_en": "Sodium chloride",
         "formula": "NaCl",
         "examples": [
-            {"name": "해수 (바닷물)", "keyword": "sea water"},
-            {"name": "생리식염수", "keyword": "saline solution"}
+            {"name": "바닷물 (Sea Water)", "image_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80"},
+            {"name": "천일염 (Sea Salt)", "image_url": "https://images.unsplash.com/photo-1518110168401-f2878ee5c8d9?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "pencil": {
         "keywords": ["pencil", "pen", "black"],
         "object_ko": "연필 / 흑연",
-        "compound_ko": "흑연 (탄소)",
+        "compound_ko": "흑연 (Graphite / Carbon)",
         "compound_en": "Graphite",
         "formula": "C",
         "examples": [
-            {"name": "다이아몬드", "keyword": "diamond"},
-            {"name": "숯", "keyword": "charcoal"}
+            {"name": "숯 (Charcoal)", "image_url": "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=500&auto=format&fit=crop&q=80"},
+            {"name": "다이아몬드 (Diamond)", "image_url": "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "bottle": {
@@ -159,8 +166,8 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Polyethylene terephthalate",
         "formula": "(C₁₀H₈O₄)n",
         "examples": [
-            {"name": "합성섬유 옷", "keyword": "polyester clothes"},
-            {"name": "비닐봉지", "keyword": "plastic bag"}
+            {"name": "폴리에스터 의류", "image_url": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&auto=format&fit=crop&q=80"},
+            {"name": "투명 투명 용기", "image_url": "https://images.unsplash.com/photo-1527156391709-37058e37ff62?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "bread": {
@@ -170,8 +177,8 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Starch",
         "formula": "(C₆H₁₀O₅)n",
         "examples": [
-            {"name": "감자", "keyword": "potato"},
-            {"name": "옥수수", "keyword": "corn"}
+            {"name": "감자 (Potato)", "image_url": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=80"},
+            {"name": "옥수수 (Corn)", "image_url": "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=500&auto=format&fit=crop&q=80"}
         ]
     },
     "default": {
@@ -181,8 +188,8 @@ OBJECT_TO_CHEMICAL_DB = {
         "compound_en": "Glucose",
         "formula": "C₆H₁₂O₆",
         "examples": [
-            {"name": "설탕", "keyword": "sugar"},
-            {"name": "과일 잼", "keyword": "jam"}
+            {"name": "백설탕 (Sugar)", "image_url": "https://images.unsplash.com/photo-1581441363689-1f3c3c414635?w=500&auto=format&fit=crop&q=80"},
+            {"name": "과일 잼 (Fruit Jam)", "image_url": "https://images.unsplash.com/photo-1568571780765-9276ac8b75a2?w=500&auto=format&fit=crop&q=80"}
         ]
     }
 }
@@ -221,7 +228,6 @@ def process_image_analysis(image):
         return OBJECT_TO_CHEMICAL_DB["default"], "인식 불가 (기본값)"
 
     matched_data = None
-    # 캡션 문장에 포함된 키워드 검색
     for key, data in OBJECT_TO_CHEMICAL_DB.items():
         if key == "default":
             continue
@@ -351,7 +357,7 @@ elif st.session_state.stage == 'result':
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="title-text" style="margin-top:-20px;">성분돋보기</div>', unsafe_allow_html=True)
-    st.caption(f"🤖 AI 인식 결과: `{caption}`")
+    st.caption(f"🤖 AI 인식 키워드: `{caption}`")
     st.divider()
 
     main_col1, main_col2 = st.columns([3, 2])
@@ -380,10 +386,11 @@ elif st.session_state.stage == 'result':
         examples = info.get('examples', [])
         for ex in examples:
             ex_name = ex.get('name', '예시 사물')
-            keyword = ex.get('keyword', 'object')
+            img_url = ex.get('image_url')
             
-            st.write(f"**• {ex_name}**")
-            st.image(f"https://picsum.photos/seed/{keyword}/300/200", use_container_width=True)
+            st.markdown(f"**• {ex_name}**")
+            if img_url:
+                st.image(img_url, use_container_width=True)
 
 # -----------------------------------------------------------------------------
 # 5. Footer Disclaimer
